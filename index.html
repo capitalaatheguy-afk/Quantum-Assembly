@@ -1,0 +1,325 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Quantum Assembly — Single-file Incremental</title>
+<style>
+  :root{--bg:#0b1020;--card:#0f1724;--accent:#6ee7b7;--muted:#9aa4bf}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#05060a 0%,#0b1020 100%);color:#e6eef8}
+  .wrap{max-width:980px;margin:24px auto;padding:18px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+  header{display:flex;align-items:center;gap:12px}
+  .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#1f2937,#0ea5a4);display:flex;align-items:center;justify-content:center;font-weight:700}
+  h1{margin:0;font-size:20px}
+  p.lead{color:var(--muted);margin:6px 0 12px}
+  .top-row{display:flex;gap:12px;flex-wrap:wrap}
+  .card{background:var(--card);padding:12px;border-radius:10px;flex:1;min-width:220px}
+  .resource{display:flex;justify-content:space-between;align-items:center;margin:8px 0}
+  button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:inherit;cursor:pointer}
+  button.primary{background:linear-gradient(90deg,var(--accent),#60a5fa);color:#012; border: none;font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+  .list .item{display:flex;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);margin-bottom:8px}
+  .footer{color:var(--muted);font-size:12px;margin-top:12px}
+  .small{font-size:13px;color:var(--muted)}
+  .big-num{font-weight:700;font-size:18px}
+  .muted{color:var(--muted)}
+  .upgrade{display:flex;flex-direction:column;gap:6px}
+  .row{display:flex;gap:8px;align-items:center}
+  progress{width:100%;height:8px;border-radius:8px;overflow:hidden}
+  .center{text-align:center}
+  .save-indicator{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">QA</div>
+    <div>
+      <h1>Quantum Assembly</h1>
+      <p class="lead">Assemble the cosmos from particles to civilizations. Single-file HTML incremental.</p>
+    </div>
+  </header>  <div class="top-row" style="margin-top:12px">
+    <div class="card" style="flex:2">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="small">Resources</div>
+          <div class="big-num" id="particlesDisplay">Particles: 0</div>
+          <div class="small" id="coresDisplay">Quantum Cores: 0</div>
+        </div>
+        <div style="text-align:right">
+          <div class="small muted">Prestige</div>
+          <button id="collapseBtn" class="primary">Quantum Collapse</button>
+          <div class="small">(Gain cores on collapse)</div>
+        </div>
+      </div><hr style="opacity:.06;margin:12px 0">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button id="manualBtn">Generate Particle</button>
+    <button id="assembleAtomBtn">Assemble Atom</button>
+    <button id="assembleMolBtn">Assemble Molecule</button>
+    <button id="makeStructureBtn">Create Structure</button>
+  </div>
+
+  <div style="margin-top:10px">
+    <div class="small muted">Autosave & tick</div>
+    <div class="save-indicator" id="saveIndicator">Saved</div>
+  </div>
+</div>
+
+<div class="card" style="flex:1">
+  <div class="small muted">Producers</div>
+  <div class="list" id="producersList">
+    <!-- Dynamically filled -->
+  </div>
+</div>
+
+  </div>  <div class="grid">
+    <div class="card">
+      <div class="small muted">Progression</div>
+      <div class="list" id="progressionList"></div>
+    </div><div class="card">
+  <div class="small muted">Upgrades</div>
+  <div class="list" id="upgradesList"></div>
+</div>
+
+<div class="card">
+  <div class="small muted">Stats</div>
+  <div class="small" id="stats">Tick: 0 | Total Particles Generated: 0</div>
+</div>
+
+  </div>  <div class="footer center">
+    <div class="small">This is a compact, single-file prototype. Save the file as <code>quantum_assembly.html</code> and open it in your browser.</div>
+    <div style="margin-top:6px" class="small muted">Auto-saves to localStorage. Click Quantum Collapse to prestige.</div>
+  </div>
+</div><script>
+// --- Simple single-file incremental: Quantum Assembly ---
+const SAVE_KEY = 'qa_save_v1';
+let state = {
+  particles: 0,
+  atoms: 0,
+  molecules: 0,
+  structures: 0,
+  civilizations: 0,
+  cores: 0, // prestige currency
+  totalParticles: 0,
+  tickCount: 0,
+  producers: {
+    particleCollider: {level:0, baseCost:10, prod:1},
+    atomSynth: {level:0, baseCost:100, prod:0.05},
+    molecLab: {level:0, baseCost:1000, prod:0.005}
+  },
+  upgrades: {},
+  lastSave: Date.now()
+};
+
+// Utilities
+function fmt(x){
+  if (x < 10000) return Math.round(x*100)/100;
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  const m = x/Math.pow(10,e);
+  return m.toFixed(2)+"e"+e;
+}
+
+function save(){
+  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  state.lastSave = Date.now();
+  document.getElementById('saveIndicator').textContent = 'Saved ' + new Date().toLocaleTimeString();
+}
+function load(){
+  const raw = localStorage.getItem(SAVE_KEY);
+  if(raw){
+    try{const s = JSON.parse(raw); Object.assign(state,s);}catch(e){console.warn('load failed',e)}
+  }
+}
+
+// Producer cost formula
+function costFor(base, level){
+  return Math.ceil(base * Math.pow(1.15, level));
+}
+
+// Game actions
+function manualGenerate(){
+  const gain = 1 + (state.cores * 0.2);
+  state.particles += gain;
+  state.totalParticles += gain;
+}
+
+function assembleAtom(){
+  if(state.particles >= 10){
+    state.particles -= 10;
+    state.atoms += 1;
+    // bonus based on cores
+  }
+}
+function assembleMolecule(){
+  if(state.atoms >= 5){
+    state.atoms -= 5;
+    state.molecules += 1;
+  }
+}
+function makeStructure(){
+  if(state.molecules >= 10){
+    state.molecules -= 10;
+    state.structures += 1;
+    // structures give civilization progress
+    if(state.structures % 10 === 0){ state.civilizations += 1; }
+  }
+}
+
+function buyProducer(key){
+  const p = state.producers[key];
+  const c = costFor(p.baseCost, p.level);
+  if(state.particles >= c){
+    state.particles -= c;
+    p.level += 1;
+  }
+}
+
+function quantumCollapse(){
+  // simple prestige: cores awarded proportional to totalParticles
+  const coresGain = Math.floor(Math.pow(state.totalParticles/1000, 0.5));
+  if(coresGain <= 0){
+    alert('Not enough progress to collapse. Accumulate more particles.');
+    return;
+  }
+  if(!confirm('Collapse the universe? This will reset resources in exchange for '+coresGain+' Quantum Cores.')) return;
+  state.cores += coresGain;
+  // reset core progression but keep cores and some meta
+  const keep = {cores: state.cores};
+  state = {
+    particles: 0, atoms:0, molecules:0, structures:0, civilizations:0,
+    cores: keep.cores, totalParticles:0, tickCount:0, producers:{
+      particleCollider: {level:0, baseCost:10, prod:1},
+      atomSynth: {level:0, baseCost:100, prod:0.05},
+      molecLab: {level:0, baseCost:1000, prod:0.005}
+    },
+    upgrades: {}, lastSave: Date.now()
+  };
+  save();
+  renderAll();
+}
+
+// Tick: runs every 200ms
+function tick(dt){
+  state.tickCount++;
+  // producers generate
+  const pc = state.producers.particleCollider.level * (state.producers.particleCollider.prod + state.cores * 0.01);
+  const atomGen = state.producers.atomSynth.level * state.producers.atomSynth.prod;
+  const molGen = state.producers.molecLab.level * state.producers.molecLab.prod;
+
+  // scale with dt in seconds
+  const sec = dt/1000;
+  state.particles += pc * sec;
+  state.atoms += atomGen * sec;
+  state.molecules += molGen * sec;
+
+  // automatic assembly rules (soft automation)
+  // convert particles -> atoms if abundant
+  if(state.particles > 1000){
+    const conv = Math.floor(state.particles/1000);
+    state.particles -= conv*1000;
+    state.atoms += conv;
+  }
+
+  // Entropy: tiny decay to encourage collapse after long runs (softcap)
+  if(state.tickCount % 100 === 0){
+    state.particles *= 0.9999;
+  }
+}
+
+// UI
+function renderProducers(){
+  const container = document.getElementById('producersList');
+  container.innerHTML = '';
+  for(const k of Object.keys(state.producers)){
+    const p = state.producers[k];
+    const div = document.createElement('div'); div.className='item';
+    const left = document.createElement('div'); left.style.fontSize='13px'; left.innerHTML = k + ' <div class="small muted">level '+p.level+'</div>';
+    const right = document.createElement('div');
+    const buyBtn = document.createElement('button'); buyBtn.textContent = 'Buy ('+costFor(p.baseCost,p.level)+')';
+    buyBtn.onclick = ()=>{ buyProducer(k); renderAll(); };
+    right.appendChild(buyBtn);
+    div.appendChild(left); div.appendChild(right);
+    container.appendChild(div);
+  }
+}
+
+function renderProgression(){
+  const c = document.getElementById('progressionList'); c.innerHTML='';
+  const rows = [
+    ['Particles', state.particles],
+    ['Atoms', state.atoms],
+    ['Molecules', state.molecules],
+    ['Structures', state.structures],
+    ['Civilizations', state.civilizations]
+  ];
+  rows.forEach(r=>{
+    const el = document.createElement('div'); el.className='item';
+    el.innerHTML = `<div>${r[0]}</div><div>${fmt(r[1])}</div>`;
+    c.appendChild(el);
+  });
+}
+
+function renderUpgrades(){
+  const c = document.getElementById('upgradesList'); c.innerHTML='';
+  const upgradeTemplates = [
+    {id:'boostParticles', name:'Particle Boost', desc:'Multiply particle gain by 2.5', cost:50},
+    {id:'betterCollider', name:'Better Collider', desc:'Particle colliders are 2x effective', cost:200}
+  ];
+  upgradeTemplates.forEach(u=>{
+    const el = document.createElement('div'); el.className='item upgrade';
+    const top = document.createElement('div'); top.className='row';
+    const name = document.createElement('div'); name.innerHTML=`<strong>${u.name}</strong><div class="small muted">${u.desc}</div>`;
+    const buy = document.createElement('button'); buy.textContent = state.upgrades[u.id] ? 'Owned' : 'Buy ('+u.cost+')';
+    buy.disabled = !!state.upgrades[u.id] || state.particles < u.cost;
+    buy.onclick = ()=>{ if(state.particles >= u.cost){ state.particles -= u.cost; state.upgrades[u.id]=true; applyUpgrade(u.id); renderAll(); } };
+    top.appendChild(name); top.appendChild(buy);
+    el.appendChild(top);
+    c.appendChild(el);
+  });
+}
+
+function applyUpgrade(id){
+  if(id==='boostParticles'){ /* simple multiplicative buff on manual */ state.producers.particleCollider.prod *= 2.5; }
+  if(id==='betterCollider'){ state.producers.particleCollider.prod *= 2; }
+}
+
+function renderStats(){
+  const el = document.getElementById('stats');
+  el.textContent = `Tick: ${state.tickCount} | Total Particles Generated: ${fmt(state.totalParticles)} | Cores: ${state.cores}`;
+}
+
+function renderAll(){
+  document.getElementById('particlesDisplay').textContent = 'Particles: '+fmt(state.particles);
+  document.getElementById('coresDisplay').textContent = 'Quantum Cores: '+state.cores;
+  renderProducers(); renderProgression(); renderUpgrades(); renderStats();
+}
+
+// Wire UI
+window.addEventListener('load', ()=>{
+  load();
+  renderAll();
+  document.getElementById('manualBtn').onclick = ()=>{ manualGenerate(); renderAll(); };
+  document.getElementById('assembleAtomBtn').onclick = ()=>{ assembleAtom(); renderAll(); };
+  document.getElementById('assembleMolBtn').onclick = ()=>{ assembleMolecule(); renderAll(); };
+  document.getElementById('makeStructureBtn').onclick = ()=>{ makeStructure(); renderAll(); };
+  document.getElementById('collapseBtn').onclick = ()=>{ quantumCollapse(); };
+
+  // Main game loop (requestAnimationFrame style)
+  let last = performance.now();
+  function loop(now){
+    const dt = now - last; last = now;
+    tick(dt);
+    renderAll();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // Autosave every 5s
+  setInterval(()=>{ save(); }, 5000);
+});
+
+// Expose save/load for debug in console
+window.QA = {state, save, load};
+</script></body>
+</html>
